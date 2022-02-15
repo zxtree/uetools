@@ -15,6 +15,8 @@ UE_ROOT = "D:\\Epic Games"
 
 UE_DIR = "#{UE_ROOT}\\UE_5.0EA2"
 UE_EXE = "#{UE_DIR}\\Engine\\Binaries\\#{PLATFORM}\\UnrealEditor.exe" #UE4Editor.exe for UE4
+UBT_DIR = "#{UE_DIR}\\Engine\\Binaries\\DotNET\\UnrealBuildTool"
+UBT_EXE = "#{UBT_DIR}\\UnrealBuildTool.exe"
 BUILD_BAT = "#{UE_DIR}\\Engine\\Build\\BatchFiles\\Build.bat"
 
 PROJECTS_ROOT = "#{UE_ROOT}\\projects"
@@ -52,7 +54,15 @@ class UEProject
     end
 
     def startGame
-        spawn("\"#{UE_EXE}\" \"#{uproject}\" #{defaultMap}?Listen -game -windowed -log -resx #{screenSize["X"]} -resy = #{screenSize["Y"]}")
+        modes = {
+            "listen" => "\"#{UE_EXE}\" \"#{uproject}\" #{defaultMap}?Listen -game -windowed -log -resx=#{screenSize["X"]} -resy=#{screenSize["Y"]}",
+            "client" => "\"#{UE_EXE}\" \"#{uproject}\" 127.0.0.1 -game -windowed -log -resx=#{screenSize["X"]} -resy=#{screenSize["Y"]}",
+            "server" => "\"#{UE_EXE}\" \"#{uproject}\" #{defaultMap} -server -game -log"
+        }
+        
+        cmd = modes[ARGV[1]] ? modes[ARGV[1]] : modes["listen"]
+        spawn(cmd)
+        #spawn()
     end
 
     def startEditor
@@ -60,7 +70,20 @@ class UEProject
     end
 
     def build
-        spawn("\"#{BUILD_BAT}\" #{projectName}Editor #{PLATFORM} Development #{uproject} -waitmutex -NoHotReload")
+        target = @projectName
+        if(ARGV[1] == "Editor")
+            target = "#{@projectName}Editor"
+        end
+        
+        cmd = "\"#{BUILD_BAT}\" #{target} #{PLATFORM} Development \"#{uproject}\" -waitmutex -NoHotReload"
+        puts cmd
+        `#{cmd}`
+    end
+
+    def generateProjectFile
+        cmd = "\"#{UBT_EXE}\" -projectfiles -project=\"#{uproject}\" -game -rocket -progress -engine -VSCode"
+        puts cmd
+        `#{cmd}`
     end
 end
 
@@ -100,7 +123,12 @@ def main
         when "build"
             project.build
         else
-            puts "invalid action: #{action}"
+            begin
+                project.send(action)
+            rescue Exception => e
+                puts e.message
+                puts "invalid action: #{action}"
+            end
     end
 end
 main
