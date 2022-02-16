@@ -9,6 +9,7 @@
 #       - {PROJECT} ..
 
 require 'inifile'
+require 'Open3'
 
 PLATFORM = "Win64"
 UE_ROOT = "D:\\Epic Games"
@@ -54,36 +55,54 @@ class UEProject
     end
 
     def startGame
+        remoteAddr = "127.0.0.1"
+        mode = ARGV[1] ? ARGV[1] : "listen"
+
         modes = {
-            "listen" => "\"#{UE_EXE}\" \"#{uproject}\" #{defaultMap}?Listen -game -windowed -log -resx=#{screenSize["X"]} -resy=#{screenSize["Y"]}",
-            "client" => "\"#{UE_EXE}\" \"#{uproject}\" 127.0.0.1 -game -windowed -log -resx=#{screenSize["X"]} -resy=#{screenSize["Y"]}",
-            "server" => "\"#{UE_EXE}\" \"#{uproject}\" #{defaultMap} -server -game -log"
+            "listen" => "\"#{UE_EXE}\" \"#{uproject}\" -game #{defaultMap}?Listen",
+            "client" => "\"#{UE_EXE}\" \"#{uproject}\" -game",
+            "server" => "\"#{UE_EXE}\" \"#{uproject}\" #{defaultMap} -server -game"
+        }
+
+        defaultParams = {
+            "listen" => "-windowed winx=200 winy=200 resx=#{screenSize["X"]} resy=#{screenSize["Y"]}",
+            "client" => "#{remoteAddr} -windowed winx=1000 winy=200 resx=#{screenSize["X"]} -resy=#{screenSize["Y"]}",
+            "server" => ""
         }
         
-        cmd = modes[ARGV[1]] ? modes[ARGV[1]] : modes["listen"]
+        params = ARGV.slice(2, ARGV.size - 1)
+        params = params && params.size > 0 ? params.join(" ") : nil
+        cmd = params ? "#{modes[mode]} #{params}" : "#{modes[mode]} #{defaultParams[mode]}"
+        #pus cmd
+        printCmd(cmd)
         spawn(cmd)
-        #spawn()
     end
 
     def startEditor
-        spawn("\"#{UE_EXE}\" \"#{uproject}\"")
+        params = ARGV.slice(1, ARGV.size - 1)
+        params = params ? params.join(" ") : ""
+        cmd = "\"#{UE_EXE}\" \"#{uproject}\" #{params}"
+        #puts cmd
+        printCmd(cmd)
+        spawn(cmd)
     end
 
     def build
-        target = @projectName
-        if(ARGV[1] == "Editor")
-            target = "#{@projectName}Editor"
+        target = "#{@projectName}Editor"
+        
+        if ARGV[1]
+            target = ARGV[1]
         end
         
         cmd = "\"#{BUILD_BAT}\" #{target} #{PLATFORM} Development \"#{uproject}\" -waitmutex -NoHotReload"
-        puts cmd
-        `#{cmd}`
+        printCmd(cmd)
+        Open3.pipeline(cmd)
     end
 
     def generateProjectFile
         cmd = "\"#{UBT_EXE}\" -projectfiles -project=\"#{uproject}\" -game -rocket -progress -engine -VSCode"
-        puts cmd
-        `#{cmd}`
+        printCmd(cmd)
+        Open3.pipeline(cmd)
     end
 end
 
@@ -95,6 +114,11 @@ end
 def printHelpMsg
     puts "run in project folder"
     puts "Usage: ruby [this script] [actions: game | editor | build...] [arguments]"
+end
+
+def printCmd(cmd)
+    puts "-- command: #{cmd}"
+    puts "***********"
 end
 
 #entry
@@ -114,7 +138,7 @@ def main
     end
 
     action = ARGV[0]
-    puts "action: #{action}"
+    puts "-- action: #{action}"
     case action
         when "game"
             project.startGame
