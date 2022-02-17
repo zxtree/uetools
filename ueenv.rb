@@ -5,6 +5,8 @@
 #   - UE_x.x/ 
 #   - UE_y.y/
 #   - ...
+#   - tools/
+#       - ueenv.rb {this file}
 #   - projects/
 #       - {PROJECT} ..
 
@@ -40,6 +42,10 @@ class UEProject
         "#{root}\\#{@projectName}.uproject"
     end
 
+    def workspace
+        "#{root}\\#{@projectName}.code-workspace"
+    end
+
     def defaultMap
         @defaultEngine["/Script/EngineSettings.GameMapsSettings"]["GameDefaultMap"]
     end
@@ -54,6 +60,14 @@ class UEProject
         return reso
     end
 
+    def packageDir
+        "#{root}\\Binaries\\#{PLATFORM}\\Windows"
+    end
+
+    def packageExe
+        "#{packageDir}\\#{@projectName}.exe"
+    end
+
     def startGame
         remoteAddr = "127.0.0.1"
         mode = ARGV[1] ? ARGV[1] : "listen"
@@ -65,8 +79,8 @@ class UEProject
         }
 
         defaultParams = {
-            "listen" => "-windowed winx=200 winy=200 resx=#{screenSize["X"]} resy=#{screenSize["Y"]}",
-            "client" => "#{remoteAddr} -windowed winx=1000 winy=200 resx=#{screenSize["X"]} -resy=#{screenSize["Y"]}",
+            "listen" => "-windowed winx=200 winy=200 resx=#{screenSize["X"]} resy=#{screenSize["Y"]} -ExecCmds=\"stat fps\" -log",
+            "client" => "#{remoteAddr} -windowed winx=1000 winy=200 resx=#{screenSize["X"]} -resy=#{screenSize["Y"]} -ExecCmds=\"stat fps\" -log",
             "server" => ""
         }
         
@@ -87,6 +101,22 @@ class UEProject
         spawn(cmd)
     end
 
+    def packed
+        cmd = nil
+        case ARGV[1]
+        when "listen"
+            cmd = "\"#{packageExe}\" #{defaultMap}?Listen"
+        when "client"
+            remoteAddr = ARGV[2] ? ARGV[2] : "127.0.0.1"
+            cmd = "\"#{packageExe}\" #{remoteAddr}"            
+        else
+            params = ARGV.slice(1,ARGV.size - 1)
+            cmd = "\"#{packageExe}\" #{params}"
+        end
+        printCmd(cmd)
+        spawn(cmd)
+    end
+
     def build
         target = "#{@projectName}Editor"
         
@@ -100,9 +130,22 @@ class UEProject
     end
 
     def generateProjectFile
-        cmd = "\"#{UBT_EXE}\" -projectfiles -project=\"#{uproject}\" -game -rocket -progress -engine -VSCode"
+        cmd = "rm -r \"#{root}\\.vscode\\compileCommands_#{@projectName}\"| \"#{UBT_EXE}\" -projectfiles -project=\"#{uproject}\" -game -rocket -progress -engine -VSCode"
+        #cmd = "rm -r \"#{root}\\.vscode\\compileCommands_#{@projectName}\""
         printCmd(cmd)
         Open3.pipeline(cmd)
+    end
+
+    def code
+        cmd = "code \"#{workspace}\""
+        printCmd(cmd)
+        spawn(cmd)
+    end
+
+    def ueenv
+        cmd = "code \"#{UE_ROOT}\\tools\\ueenv.rb\""
+        printCmd(cmd)
+        spawn(cmd)
     end
 end
 
