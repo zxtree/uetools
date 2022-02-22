@@ -12,6 +12,7 @@
 
 require 'inifile'
 require 'Open3'
+require 'JSON'
 
 PLATFORM = "Win64"
 UE_ROOT = "D:\\Epic Games"
@@ -68,28 +69,52 @@ class UEProject
         "#{packageDir}\\#{@projectName}.exe"
     end
 
-    def startGame
+    def remoteAddr
         remoteAddr = "127.0.0.1"
+    end
+
+    def gameParam
+        {
+            "listen" => [
+                uproject,
+                "-game",
+                "#{defaultMap}?Listen",
+                "-windowed",
+                "winx=200",
+                "winy=200",
+                "resx=#{screenSize["X"]}",
+                "resy=#{screenSize["Y"]}",
+                "-ExecCmds=\"stat fps\"",
+            ],
+            "client" => [
+                uproject,
+                "-game",
+                remoteAddr,
+                "-windowed",
+                "winx=1000",
+                "winy=200",
+                "resx=#{screenSize["X"]}",
+                "resy=#{screenSize["Y"]}",
+                "-ExecCmds=\"stat fps\"",
+            ]
+        }
+    end
+
+    def toParamStr(arr)
+        arr[0] = "\"#{arr[0]}\""
+        arr.join(" ")
+    end
+
+    def startGame
         mode = ARGV[1] ? ARGV[1] : "listen"
-
-        modes = {
-            "listen" => "\"#{UE_EXE}\" \"#{uproject}\" -game #{defaultMap}?Listen",
-            "client" => "\"#{UE_EXE}\" \"#{uproject}\" -game",
-            "server" => "\"#{UE_EXE}\" \"#{uproject}\" #{defaultMap} -server -game"
-        }
-
-        defaultParams = {
-            "listen" => "-windowed winx=200 winy=200 resx=#{screenSize["X"]} resy=#{screenSize["Y"]} -ExecCmds=\"stat fps\" -log",
-            "client" => "#{remoteAddr} -windowed winx=1000 winy=200 resx=#{screenSize["X"]} -resy=#{screenSize["Y"]} -ExecCmds=\"stat fps\" -log",
-            "server" => ""
-        }
         
         params = ARGV.slice(2, ARGV.size - 1)
         params = params && params.size > 0 ? params.join(" ") : nil
-        cmd = params ? "#{modes[mode]} #{params}" : "#{modes[mode]} #{defaultParams[mode]}"
+        cmd = params ? "\"#{UE_EXE}\" \"#{params}\"" : "\"#{UE_EXE}\" #{toParamStr(gameParam[mode].push("-log"))}"
         #pus cmd
         printCmd(cmd)
         spawn(cmd)
+        #Open3.pipeline(cmd)
     end
 
     def startEditor
@@ -134,6 +159,52 @@ class UEProject
         #cmd = "rm -r \"#{root}\\.vscode\\compileCommands_#{@projectName}\""
         printCmd(cmd)
         Open3.pipeline(cmd)
+        alterLaunch
+    end
+
+    def vscodeRoot
+        "#{root}\\.vscode"
+    end
+
+    def taskFile
+        "#{vscodeRoot}\\tasks.json"
+    end
+
+    def launchFile
+        "#{vscodeRoot}\\launch.json"
+    end
+
+    def alterLaunch
+        launch = JSON.parse(File.read(launchFile))
+        conf = launch["configurations"]
+        conf = conf.delete_if {|element| element["name"] == "Debug Client" || element["name"] == "Debug Listen"}
+
+        debug = {
+            "name" => "Debug Listen",
+            "args" => gameParam["listen"],
+            "request" => "launch",
+            "preLaunchTask" => "TPPEditor Win64 Development Build",
+            "program" => "#{UE_EXE}",
+            "cwd" => "#{UE_DIR}",
+            "stopAtEntry" => false,
+            "externalConsole" => false,
+            "type" => "cppvsdbg",
+            "visualizerFile" => "#{UE_DIR}\\Engine\\Extra\\VisualStudioDebugging\\Unreal.natvis"
+        }
+
+        conf.push(debug)
+
+        client = debug.clone
+        client["name"] = "Debug Client"
+        client["args"] = gameParam["client"]
+        conf.push(client)
+
+        launch["configurations"] = conf
+        launchStr = JSON.pretty_generate(launch)
+        #puts launchStr
+        wFile = File.open(launchFile, "w")
+        wFile.write(launchStr)
+        wFile.close
     end
 
     def code
