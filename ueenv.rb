@@ -160,6 +160,7 @@ class UEProject
         printCmd(cmd)
         Open3.pipeline(cmd)
         alterLaunch
+        alterTask
     end
 
     def vscodeRoot
@@ -205,6 +206,17 @@ class UEProject
         wFile = File.open(launchFile, "w")
         wFile.write(launchStr)
         wFile.close
+    end
+    
+    def alterTask
+        task = JSON.parse(File.read(taskFile))
+
+        task["tasks"].delete_if {|t| t["label"].index("HoloLens")}
+
+        wFile = File.open(taskFile, "w")
+        wFile.write(JSON.pretty_generate(task))
+        wFile.close
+        #puts JSON.pretty_generate(task)
     end
 
     def code
