@@ -15,9 +15,9 @@ require 'Open3'
 require 'JSON'
 
 PLATFORM = "Win64"
-UE_ROOT = "D:\\Epic Games"
+UE_ROOT = "D:\\Unreal"
 
-UE_DIR = "#{UE_ROOT}\\UE_5.0EA2"
+UE_DIR = "#{UE_ROOT}\\UE-5.0"
 UE_EXE = "#{UE_DIR}\\Engine\\Binaries\\#{PLATFORM}\\UnrealEditor.exe" #UE4Editor.exe for UE4
 UBT_DIR = "#{UE_DIR}\\Engine\\Binaries\\DotNET\\UnrealBuildTool"
 UBT_EXE = "#{UBT_DIR}\\UnrealBuildTool.exe"
@@ -62,7 +62,7 @@ class UEProject
     end
 
     def packageDir
-        "#{root}\\Binaries\\#{PLATFORM}\\Windows"
+        "#{root}\\Package\\Windows"
     end
 
     def packageExe
