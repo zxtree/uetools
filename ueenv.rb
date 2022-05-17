@@ -184,7 +184,7 @@ class UEProject
             "name" => "Debug Listen",
             "args" => gameParam["listen"],
             "request" => "launch",
-            "preLaunchTask" => "TPPEditor Win64 Development Build",
+            "preLaunchTask" => "#{@projectName}Editor Win64 Development Build",
             "program" => "#{UE_EXE}",
             "cwd" => "#{UE_DIR}",
             "stopAtEntry" => false,
